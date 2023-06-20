@@ -1,0 +1,22 @@
+{
+  "cli": {
+    "version": ">= 0.49.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal"
+    },
+    "production": {
+      "env": {
+        "ANDROID_SDK_ROOT": "C:\\Users\\Claudiu-\\AppData\\Local\\Android\\Sdk"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
