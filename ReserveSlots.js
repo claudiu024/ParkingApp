@@ -11,7 +11,7 @@ import {
   initialState,
   checkValidaton,
   Inputs,
-  hasNaNatributes,
+  isNullish,
 } from "./services";
 import DarkSelectList from "./DarkSelectLIst";
 import theme from "./Theme";
@@ -25,14 +25,14 @@ export default function ReserveSlots({ route, navigation }) {
   registerTranslation("en-GB", enGB);
   id = route.params.id;
   const reservation = new Reservation();
-
+  const [isWaiting, setIsWaiting] = useState(false);
   const data = [
     { key: "1", value: "First Floor" },
     { key: "2", value: "Second Floor" },
     { key: "3", value: "Third Floor" },
     { key: "4", value: "Fourth Floor" },
   ];
-  // const [selected, setSelected] = useState("");
+  const [errors, setErrors] = useState([]);
   const [inputs, setInputs] = useState(Inputs);
   const DateFormatter = new Intl.DateTimeFormat("en-us", options);
   const [states, setStates] = useState(initialState);
@@ -70,18 +70,6 @@ export default function ReserveSlots({ route, navigation }) {
   useEffect(() => {
     setStates({ ...states, placeholder: states.min + "-" + states.max });
   }, [states.min]);
-  // useEffect(() => {
-  //   async function getData() {
-  //     const url1 = `http://192.168.221.245:5000//ParkingSlots${id}`;
-
-  //     const response1 = await fetch(url1).catch((e) => console.log(e));
-  //     const data1 = await response1.json().catch((e) => console.log(e));
-  //     setSlots(data1);
-
-  //     // do what you want with data1 and data2 here
-  //   }
-  //   getData();
-  // }, []);
 
   useEffect(() => {
     setStates({
@@ -92,6 +80,11 @@ export default function ReserveSlots({ route, navigation }) {
       },
     });
   }, [inputs.ParkingHours, states.StartTime]);
+
+  useEffect(() => {
+    console.log("Error updated", errors);
+  }, [errors]);
+
   function setDatesfromClock() {
     today = new Date();
     let StartDate = today.setHours(
@@ -118,30 +111,37 @@ export default function ReserveSlots({ route, navigation }) {
       reservation.setSlot = generateRandomNumber();
     } else {
       // const response1 = await fetch(
-      //   `http://192.168.221.245:5000/SlotNumberbyID${inputs.slots}`
+      //   `http://192.168.0.141:5000/SlotNumberbyID${inputs.slots}`
       // ).catch((e) => console.log(e));
       // const data1 = await response1.json();
       axios
-        .get(`http://192.168.221.245:5000/SlotIDbyNumber${inputs.slots}`)
+        .get(`http://192.168.0.141:5000/SlotIDbyNumber${inputs.slots}`)
         .then((response) => {
-          let id = response.data[0].idParkingSlots;
+          // reservation2 = new Reservation(response.data[0]);
+
+          const slot_id = response.data[0].idParkingSlots;
+          // console.log(slot_id);
           axios
-            .get(`http://192.168.221.245:5000/searchReservationBySlotID${id}`)
+            .get(`http://192.168.0.141:5000/getReservationsBySlotID${slot_id}`)
             .then((response) => {
-              console.log(response.data);
-              if (response.data.reserved) {
-                addError("Selected slot is reserved on that period of time");
+              const found_reservations = response.data;
+
+              if (
+                validReservation(reservation, found_reservations) ||
+                found_reservations.length == 0
+              ) {
+                reservation.setSlot = slot_id;
+                axios.post("http://192.168.0.141:5000/submit", reservation);
               } else {
-                reservation.setSlot = id;
-                axios.post("http://192.168.221.245:5000/submit", reservation);
+                addError("Selected slot is reserved on that period of time");
               }
             });
           // reservation.setSlot = response.data[0].idParkingSlots;
-          // makePostRequest("http://192.168.221.245:5000/submit", reservation);
+          // makePostRequest("http://192.168.0.141:5000/submit", reservation);
         })
         .catch((err) => console.log(err));
       // .then(
-      //   makePostRequest(`http://192.168.221.245:5000/ParkingSlots${id}`, {
+      //   makePostRequest(`http://192.168.0.141:5000/ParkingSlots${id}`, {
       //     reserved: 1,
       //     slot_number: inputs.slots,
       //   })
@@ -149,7 +149,20 @@ export default function ReserveSlots({ route, navigation }) {
       // .catch((err) => console.log(err));
     }
   }
-  // function compare
+  function validReservation(reservation1, reservations_array) {
+    reservations_array.every((reservation2) => {
+      console.log(reservation1, reservation2);
+
+      if (
+        reservation1.StartDate < reservation2.EndDate &&
+        reservation2.StartDate < reservation1.EndDate
+      ) {
+        console.log("Slot is reseved");
+        return false;
+      } else;
+      return true;
+    });
+  }
   function generateRandomNumber() {
     console.log("generating number");
 
@@ -157,81 +170,141 @@ export default function ReserveSlots({ route, navigation }) {
       Math.floor(Math.random() * (states.max - states.min + 1)) + states.min
     );
   }
+  function validateCalendarDates() {
+    if (isNullish(states.range)) {
+      addError("Please choose reservation dates ");
+    } else {
+      // removeError("Please choose reservation dates ");
+    }
+  }
+  function validateClockDates() {
+    if (isNullish(states.StartTime) || isNullish(states.EndTime)) {
+      addError("Please choose reservation time ");
+    } else {
+      // removeError("Please choose reservation time ");
+    }
+  }
   function setResevationDates() {
     if (states.onlyToday) {
+      try {
+        validateClockDates();
+      } catch (e) {
+        console.log(e);
+      }
+
       setDatesfromClock();
     } else {
-      if (states.range.startDate == null || states.range.endDate == null) {
-        addError("Please choose reservation dates ");
-      } else {
-        removeError("Please choose reservation dates ");
-        setDatesfromCalendar();
-      }
+      validateCalendarDates();
+      setDatesfromCalendar();
     }
   }
 
-  function addError(error) {
-    if (!states.errors.includes(error))
+  async function addError(error) {
+    if (!errors.includes(error)) {
       //daca este eroare noua
-      setStates({
-        ...states,
-        errors: [...states.errors, error],
-      });
-    // states.errors.return;
+      console.log("eroare noua:", error);
+
+      setErrors((errors) => [...errors, error]);
+    }
+    console.log(states.errors);
   }
   function removeError(error) {
-    states.errors.removeElementByValue(error);
-    setStates({ ...states, errors: states.errors });
+    // console.log(states.errors);
+    if (errors.includes(error)) {
+      setErrors(errors.filter((item) => item !== error));
+      // (Error)
+      console.log("REMOVING");
+    }
+    //  errors.removeElementByValue(error);
+    // setStates({ ...states, errors: states.errors });
   }
-  function formHaveErrors() {
-    if (states.errors.length > 0) return true;
+  async function formHaveErrors() {
+    console.log("FORM ERROR", errors);
+    if (errors.length > 0) {
+      console.log(errors.length);
+      return true;
+    } else {
+      console.log("false");
+      return false;
+    }
   }
-  function Validate() {
+  async function Validate() {
     if (states.randomSlots) {
       delete inputs.slots;
     }
 
     // else removeError(empty_fields_error);
+    if (!checkValidaton(inputs)) {
+      await addError(empty_fields_error);
+    } else {
+      // removeError(empty_fields_error);
+    }
     if (inputs.slots < states.min || inputs.slots > states.max) {
       // console.log(states.min, states.max, inputs.slot);
 
-      addError(`Slot should be between ${states.min} and ${states.max}`);
-    } else
-      removeError(`Slot should be between ${states.min} and ${states.max}`);
-    if (!checkValidaton(inputs)) {
-      addError(empty_fields_error);
-    } else removeError(empty_fields_error);
-
+      await addError(`Slot should be between ${states.min} and ${states.max}`);
+      // console.log("slot error:", errors);
+    } else {
+      // removeError(`Slot should be between ${states.min} and ${states.max}`);
+    }
+    console.log("Parking HOurs:", inputs.ParkingHours, errors);
     if (parseInt(inputs.ParkingHours) > 24) {
-      addError("Parking hours should be less than a day \nUncheck only today");
-    } else
-      removeError(
+      await addError(
         "Parking hours should be less than a day \nUncheck only today"
       );
+    } else {
+      // removeError(
+      // "Parking hours should be less than a day \nUncheck only today"
+      // );
+    }
+    // const a = await resolveAfter2Seconds();
+    // setErrors([]);
+    console.log("Erors inside validation:", errors);
+  }
+  function resolveAfter2Seconds() {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve("resolved");
+      }, 5000);
+    });
   }
   async function Submit() {
-    Validate();
-    if (formHaveErrors()) {
-      return;
+    setIsWaiting(true);
+    console.log("------------------------------------");
+    setErrors([]);
+    await resolveAfter2Seconds();
+    // try {
+    await Validate();
+    // await resolveAfter2Seconds();
+
+    // console.log(reservation);
+
+    // console.log("Valid form:", checkValidaton(reservation), reservation);
+
+    // console.log(slots, PlateNumber, b.getHours());
+    // const response1 = await fetch(url1).catch((e) => console.log(e));
+    // await setReservationSlot();
+    // } catch (e) {
+    //   console.log(e);
+    // } finally {
+    if (await formHaveErrors()) {
+      console.log("haserrors", errors);
     } else {
+      console.log("noerrors", errors);
       setResevationDates();
       // setStates({ ...states, StartTime: { hours: 2, minutes: 3 } });
       reservation.setPlateNumber = inputs.PlateNumber;
       reservation.setLocation = id;
-
-      // console.log(reservation);
-
-      // console.log("Valid form:", checkValidaton(reservation), reservation);
-
-      // console.log(slots, PlateNumber, b.getHours());
-      // const response1 = await fetch(url1).catch((e) => console.log(e));
-      await setReservationSlot();
-      // console.log(reservation);
-      // makePostRequest(`http://192.168.221.245:5000/ParkingSlots${id}`, {
-      //   reserved: 1,
-      //   slot_number: inputs.slots,
-      // });
     }
+    setIsWaiting(false);
+    // }
+    // console.log(reservation);
+    // makePostRequest(`http://192.168.0.141:5000/ParkingSlots${id}`, {
+    //   reserved: 1,
+    //   slot_number: inputs.slots,
+    // });
+
+    console.log("DONE");
   }
 
   function getPlaceholderInfo(val) {
@@ -349,7 +422,7 @@ export default function ReserveSlots({ route, navigation }) {
       )}
 
       <DatePickerModal
-        locale="en-US"
+        locale="en-GB"
         style={styles.container}
         mode="range"
         visible={open}
@@ -387,22 +460,16 @@ export default function ReserveSlots({ route, navigation }) {
       <Button
         style={styles.button}
         labelStyle={styles.buttonText}
+        disabled={isWaiting}
         onPress={() => {
           Submit();
         }}
-        // theme={theme}
-        // textColor="#ddd"
-        // buttonColor="#6F5CBA"
         mode="contained"
       >
         Submit
       </Button>
 
-      {states.errors.length > 0 ? (
-        <Text style={styles.error}>{states.errors[0]} </Text>
-      ) : (
-        ""
-      )}
+      {errors.length > 0 ? <Text style={styles.error}>{errors[0]} </Text> : ""}
     </View>
   );
 }

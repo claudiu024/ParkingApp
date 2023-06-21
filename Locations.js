@@ -31,8 +31,8 @@ export default function Locations() {
 
   useEffect(() => {
     async function getData() {
-      const url1 = "http://192.168.221.245:5000/getlocations";
-      const url2 = "http://192.168.221.245:5000/AvailableParkingSlots";
+      const url1 = "http://192.168.0.141:5000/getlocations";
+      const url2 = "http://192.168.0.141:5000/AvailableParkingSlots";
 
       const response2 = await fetch(url2);
       const data2 = await response2.json();
@@ -71,6 +71,8 @@ export default function Locations() {
           onChangeText={onChangeSearch}
           inputStyle={styles.buttonText}
           value={searchQuery}
+          elevation={4}
+          style={{ backgroundColor: "#464757", width: 250, margin: 15 }}
           //
         />
         <DarkSelectList

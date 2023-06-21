@@ -120,7 +120,7 @@ const HomeScreen = ({ navigation }) => {
           mode="elevated"
           style={styles.button}
           labelStyle={styles.buttonText}
-          onPress={GoToReservation}
+          onPress={GoToProfile}
         >
           Verify license plate
         </Button>

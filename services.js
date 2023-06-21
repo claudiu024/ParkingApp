@@ -61,10 +61,28 @@ export function hasNaNatributes(obj) {
 }
 
 Array.prototype.removeElementByValue = function (value) {
+  console.log("before:", this);
+  console.log("value:", value);
   const index = this.indexOf(value);
-
-  this.splice(index, 1);
+  console.log(index);
+  if (index != -1) this.splice(index, 1);
+  console.log("AFTEr:", this);
   return this;
 };
 
 module.export = Array;
+
+// Object.prototype.hasNullAttributes =function(value){
+//   this.values
+// }
+export function isNullish(obj) {
+  var state = false;
+  Object.values(obj).every((value) => {
+    if (value === null || value.isNaN) {
+      state = true;
+      return false;
+    } else return true;
+  });
+
+  return state;
+}
