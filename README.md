@@ -1,2 +1,3 @@
 # ParkingApp
-![image](https://github.com/claudiu024/ParkingApp/assets/100803383/c5c0e72f-eaac-47e6-b43d-ffb6c727385d)
+
+![image](https://github.com/claudiu024/ParkingApp/assets/100803383/7fd9743c-a562-4536-9a6c-5e687795fff8)
